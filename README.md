@@ -1,11 +1,11 @@
 PatchMatch based Inpainting
--------------------------------------
+=====================================
 This library implements the PatchMatch based inpainting algorithm. It provides both C++ and Python interfaces.
 This implementation is heavily based on the implementation by Younesse ANDAM:
 (younesse-cv/PatchMatch)[https://github.com/younesse-cv/PatchMatch], with some bugs fix.
 
 Usage
-=====================================
+-------------------------------------
 
 You need to first install OpenCV to compile the C++ libraries. Then, run `make` to compile the
 shared library `libpatchmatch.so`.
@@ -37,7 +37,7 @@ int main() {
 
 
 README and COPYRIGHT by Younesse ANDAM
-=====================================
+-------------------------------------
 @Author: Younesse ANDAM
 
 @Contact: younesse.andam@gmail.com
@@ -56,7 +56,7 @@ Copyright (c) 2010-2011
 
 
 Requirements
-============
+-------------------------------------
 
 To run the project you need to install Opencv library and link it to your project.
 Opencv can be download it here

@@ -1,27 +1,5 @@
 #include "masked_image.h"
 
-/*
-void initSimilarity()
-{
-    int i, j, k, length;
-    double base[11] = {1.0, 0.99, 0.96, 0.83, 0.38, 0.11, 0.02, 0.005, 0.0006, 0.0001, 0 };
-    double t, vj, vk;
-    length = (DSCALE+1);
-    if (!G_initSim) {
-        G_globalSimilarity = (double *) calloc(length, sizeof(double));
-        for ( i=0 ; i<length ; ++i) {
-            t = (double)i/length;
-            j = (int)(100*t);
-            k=j+1;
-            vj = (j<11)?base[j]:0;
-            vk = (k<11)?base[k]:0;
-            G_globalSimilarity[i] = vj + (100*t-j)*(vk-vj);
-        }
-    }
-    G_initSim = 1;
-}
-*/
-
 const int MaskedImage::kDistanceScale = 65535;
 const int MaskedImage::kSSDScale = 9 * 255 * 255;
 const cv::Size MaskedImage::kDownsampleKernelSize = cv::Size(6, 6);
@@ -48,33 +26,30 @@ MaskedImage MaskedImage::downsample() const {
     const auto new_size = cv::Size(size.width / 2, size.height / 2);
 
     auto ret = MaskedImage(new_size.width, new_size.height);
-    for (int y = 0; y < size.height - 1; y += kernel_size.height) {
-        for (int x = 0; x < size.width - 1; x += kernel_size.width) {
-            int r = 0, g = 0, b = 0, ksum = 0, psum = 0;
-            for (int dy = -kernel_size.height / 2 + 1; dy <= kernel_size.height; ++dy) {
-                for (int dx = -kernel_size.width / 2 + 1; dx <= -kernel_size.width; ++dx) {
+    for (int y = 0; y < size.height - 1; y += 2) {
+        for (int x = 0; x < size.width - 1; x += 2) {
+            int r = 0, g = 0, b = 0, ksum = 0;
+
+            for (int dy = -kernel_size.height / 2 + 1; dy <= kernel_size.height / 2; ++dy) {
+                for (int dx = -kernel_size.width / 2 + 1; dx <= kernel_size.width / 2; ++dx) {
                     int yy = y + dy, xx = x + dx;
                     if (yy >= 0 && yy < size.height && xx >= 0 && xx < size.width && !is_masked(yy, xx)) {
-                        int k = kernel[kernel_size.height + dy] * kernel[kernel_size.width + dx];
-                        r += get_image_int(yy, xx, 0) * k;
-                        g += get_image_int(yy, xx, 1) * k;
-                        b += get_image_int(yy, xx, 2) * k;
+                        auto source_ptr = get_image(yy, xx);
+                        int k = kernel[kernel_size.height / 2 - 1 + dy] * kernel[kernel_size.width / 2 - 1 + dx];
+                        r += source_ptr[0] * k, g += source_ptr[1] * k, b += source_ptr[2] * k;
                         ksum += k;
-                        psum += 1;
                     }
                 }
             }
 
             if (ksum > 0) r /= ksum, g /= ksum, b /= ksum;
-            if (psum > 0) {
-                ret.set_image(y / 2, x / 2, 0, r);
-                ret.set_image(y / 2, x / 2, 1, g);
-                ret.set_image(y / 2, x / 2, 2, b);
+
+
+            if (ksum > 0) {
+                auto target_ptr = ret.get_mutable_image(y / 2, x / 2);
+                target_ptr[0] = r, target_ptr[1] = g, target_ptr[2] = b;
                 ret.set_mask(y / 2, x / 2, 0);
             } else {
-                ret.set_image(y / 2, x / 2, 0, 0);
-                ret.set_image(y / 2, x / 2, 1, 0);
-                ret.set_image(y / 2, x / 2, 2, 0);
                 ret.set_mask(y / 2, x / 2, 1);
             }
         }
@@ -94,8 +69,11 @@ MaskedImage MaskedImage::upsample(int new_w, int new_h) const {
             if (is_masked(yy, xx)) {
                 ret.set_mask(y, x, 1);
             } else {
+                auto source_ptr = get_image(yy, xx);
+                auto target_ptr = ret.get_mutable_image(y, x);
                 for (int c = 0; c < 3; ++c)
-                    ret.set_image(y, x, 0, get_image(yy, xx, 0));
+                    target_ptr[c] = source_ptr[c];
+                ret.set_mask(y, x, 0);
             }
         }
     }

@@ -32,16 +32,22 @@ public:
         m_target = target;
     }
 
+    inline int *mutable_ptr(int y, int x) {
+        return m_field.ptr<int>(y, x);
+    }
+    inline const int *ptr(int y, int x) const {
+        return m_field.ptr<int>(y, x);
+    }
+
     inline int at(int y, int x, int c) const {
-        return m_field.at<int>(y, x, c);
+        return m_field.ptr<int>(y, x)[c];
     }
     inline int &at(int y, int x, int c) {
-        return m_field.at<int>(y, x, c);
+        return m_field.ptr<int>(y, x)[c];
     }
     inline void set_identity(int y, int x) {
-        m_field.at<int>(y, x, 0) = y;
-        m_field.at<int>(y, x, 1) = x;
-        m_field.at<int>(y, x, 2) = 0;
+        auto ptr = mutable_ptr(y, x);
+        ptr[0] = y, ptr[1] = x, ptr[2] = 0;
     }
 
     void minimize(int nr_pass);

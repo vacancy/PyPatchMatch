@@ -8,14 +8,13 @@ public:
         // pass
     }
     MaskedImage(cv::Mat image, cv::Mat mask) : m_image(image), m_mask(mask)  {
-        // initSimilarity();
-        // similarity = G_globalSimilarity;
+        // pass
     }
     MaskedImage(int width, int height) {
         m_image = cv::Mat(cv::Size(width, height), CV_8UC3);
         m_mask = cv::Mat(cv::Size(width, height), CV_8U);
-        // initSimilarity();
-        // similarity = G_globalSimilarity;
+        m_image = cv::Scalar::all(0);
+        m_mask = cv::Scalar::all(0);
     }
     inline MaskedImage clone() {
         return MaskedImage(m_image.clone(), m_mask.clone());
@@ -38,14 +37,18 @@ public:
         m_mask.setTo(cv::Scalar(0));
     }
 
+    inline const unsigned char *get_image(int y, int x) const {
+        return m_image.ptr<unsigned char>(y, x);
+    }
+    inline unsigned char *get_mutable_image(int y, int x) {
+        return m_image.ptr<unsigned char>(y, x);
+    }
+
     inline unsigned char get_image(int y, int x, int c) const {
-        return m_image.at<unsigned char>(y, x, c);
+        return m_image.ptr<unsigned char>(y, x)[c];
     }
     inline int get_image_int(int y, int x, int c) const {
-        return static_cast<int>(m_image.at<unsigned char>(y, x, c));
-    }
-    inline void set_image(int y, int x, int c, unsigned char value) {
-        m_image.at<unsigned char>(y, x, c) = value;
+        return static_cast<int>(m_image.ptr<unsigned char>(y, x)[c]);
     }
 
     bool contains_mask(int y, int x, int patch_size) const;
@@ -67,8 +70,3 @@ int distance_masked_images(
     const MaskedImage &target, int yt, int xt,
     int patch_size
 );
-
-// Variables globales
-// void initSimilarity();
-// extern double* G_globalSimilarity;
-// extern int G_initSim;

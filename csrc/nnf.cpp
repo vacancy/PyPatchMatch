@@ -1,10 +1,11 @@
-#include "nnf.h"
-#include "masked_image.h"
 #include <algorithm>
 
+#include "masked_image.h"
+#include "nnf.h"
+
 /**
-* Nearest-Neighbor Field (see PatchMatch algorithm)
-*  This algorithme uses a version proposed by Xavier Philippeau
+* Nearest-Neighbor Field (see PatchMatch algorithm).
+* This algorithme uses a version proposed by Xavier Philippeau.
 *
 */
 
@@ -17,24 +18,21 @@ void NearestNeighborField::_randomize_field(int max_retry, bool reset) {
     auto this_size = source_size();
     for (int i = 0; i < this_size.height; ++i) {
         for (int j = 0; j < this_size.width; ++j) {
-            int i_target = 0, j_target = 0;
-            int distance = reset ? MaskedImage::kDistanceScale : m_field.at<int>(i, j, 2);
-
+            auto this_ptr = mutable_ptr(i, j);
+            int distance = reset ? MaskedImage::kDistanceScale : this_ptr[2];
             if (distance < MaskedImage::kDistanceScale) {
                 continue;
             }
 
+            int i_target = 0, j_target = 0;
             for (int t = 0; t < max_retry; ++t) {
-                i_target = rand() % this_size.height + 1;
-                j_target = rand() % this_size.width + 1;
+                i_target = rand() % this_size.height;
+                j_target = rand() % this_size.width;
                 distance = _distance(i, j, i_target, j_target);
                 if (distance < MaskedImage::kDistanceScale)
                     break;
             }
-
-            m_field.at<int>(i, j, 0) = i_target;
-            m_field.at<int>(i, j, 1) = j_target;
-            m_field.at<int>(i, j, 2) = distance;
+            this_ptr[0] = i_target, this_ptr[1] = j_target, this_ptr[2] = distance;
         }
     }
 }
@@ -49,10 +47,12 @@ void NearestNeighborField::_initialize_field_from(const NearestNeighborField &ot
         for (int j = 0; j < this_size.width; ++j) {
             int ilow = static_cast<int>(std::min(i / fi, static_cast<double>(other_size.height - 1)));
             int jlow = static_cast<int>(std::min(j / fj, static_cast<double>(other_size.width - 1)));
-            int this_field_i, this_field_j;
-            at(i, j, 0) = this_field_i = static_cast<int>(other.at(ilow, jlow, 0) * fi);
-            at(i, j, 1) = this_field_j = static_cast<int>(other.at(ilow, jlow, 1) * fj);
-            at(i, j, 2) = _distance(i, j, this_field_i, this_field_j);
+            auto this_value = mutable_ptr(i, j);
+            auto other_value = ptr(ilow, jlow);
+
+            this_value[0] = static_cast<int>(other_value[0] * fi);
+            this_value[1] = static_cast<int>(other_value[1] * fj);
+            this_value[2] = _distance(i, j, this_value[0], this_value[1]);
         }
     }
 
@@ -74,6 +74,7 @@ void NearestNeighborField::minimize(int nr_pass) {
 void NearestNeighborField::_minimize_link(int y, int x, int direction) {
     const auto &this_size = source_size();
     const auto &this_target_size = target_size();
+    auto this_ptr = mutable_ptr(y, x);
 
     // propagation along the y direction.
     if (y - direction >= 0 && y - direction < this_size.height) {
@@ -81,7 +82,7 @@ void NearestNeighborField::_minimize_link(int y, int x, int direction) {
         int xp = at(y - direction, x, 1);
         int dp = _distance(y, x, yp, xp);
         if (dp < at(y, x, 2)) {
-            at(y, x, 0) = yp, at(y, x, 1) = xp, at(y, x, 2) = dp;
+            this_ptr[0] = yp, this_ptr[1] = xp, this_ptr[2] = dp;
         }
     }
 
@@ -91,21 +92,20 @@ void NearestNeighborField::_minimize_link(int y, int x, int direction) {
         int xp = at(y, x - direction, 1) + direction;
         int dp = _distance(y, x, yp, xp);
         if (dp < at(y, x, 2)) {
-            at(y, x, 0) = yp, at(y, x, 1) = xp, at(y, x, 2) = dp;
+            this_ptr[0] = yp, this_ptr[1] = xp, this_ptr[2] = dp;
         }
     }
 
-    int yp_current = at(y, x, 0), xp_current = at(y, x, 1);
-    int random_scale = std::min(this_target_size.height, this_target_size.width);
-    // TODO:: optimize this.
+    // random search with a progressive step size.
+    int random_scale = (std::min(this_target_size.height, this_target_size.width) - 1) / 2;
     while (random_scale > 0) {
-        int yp = yp_current + (rand() % (2 * random_scale) - random_scale);
-        int xp = xp_current + (rand() % (2 * random_scale) - random_scale);
+        int yp = this_ptr[0] + (rand() % (2 * random_scale + 1) - random_scale);
+        int xp = this_ptr[1] + (rand() % (2 * random_scale + 1) - random_scale);
         yp = clamp(yp, 0, target_size().height - 1);
         xp = clamp(xp, 0, target_size().width - 1);
         int dp = _distance(y, x, yp, xp);
         if (dp < at(y, x, 2)) {
-            at(y, x, 0) = yp, at(y, x, 1) = xp, at(y, x, 2) = dp;
+            this_ptr[0] = yp, this_ptr[1] = xp, this_ptr[2] = dp;
         }
         random_scale /= 2;
     }

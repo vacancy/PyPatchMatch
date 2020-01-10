@@ -1,2 +1,5 @@
 /examples/
-/bin/
+/build/
+/*.so
+__pycache__
+*.py[cod]

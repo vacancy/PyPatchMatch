@@ -6,4 +6,4 @@
 # Distributed under terms of the MIT license.
 #
 
-make
+make clean && make

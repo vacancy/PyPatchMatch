@@ -13,7 +13,8 @@ INCLUDE_DIR = -I $(SRC_DIR) -I $(INC_DIR)
 
 CXX = $(ENVIRONMENT_OPTIONS) g++
 CXXFLAGS = -std=c++14
-CXXFLAGS += -O2 -w -fPIC
+CXXFLAGS += -O2 -w
+CXXFLAGS += $(shell pkg-config --cflags opencv) -fPIC
 CXXFLAGS += $(INCLUDE_DIR)
 LDFLAGS = $(shell pkg-config --cflags --libs opencv) -shared -fPIC
 

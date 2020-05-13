@@ -21,8 +21,9 @@ int main() {
     }
 
     auto result = Inpainting(source, mask, 3).run(true);
-    cv::imshow("Result", result);
-    cv::waitKey();
+    cv::imwrite("./images/forest_recovered.bmp", result);
+    // cv::imshow("Result", result);
+    // cv::waitKey();
 
     return 0;
 }

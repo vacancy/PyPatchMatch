@@ -8,7 +8,8 @@
 
 set -x
 
-CFLAGS="-std=c++14 -O2 $(pkg-config --libs --cflags opencv)"
-g++ $CFLAGS cpp_example.cpp -L../ -lpatchmatch -I../csrc/ -o cpp_example.exe
-LD_LIBRARY_PATH=../:$LD_LIBRARY_PATH ./cpp_example.exe
+CFLAGS="-std=c++14 -O2 $(pkg-config --cflags opencv)"
+LDFLAGS="$(pkg-config --libs opencv)"
+g++ $CFLAGS cpp_example.cpp -I../csrc/ -L../ -lpatchmatch $LDFLAGS -o cpp_example.exe
+LD_LIBRARY_PATH=../:$LD_LIBRARY_PATH time ./cpp_example.exe
 

@@ -22,6 +22,19 @@ namespace {
             kDistance2Similarity[i] = vj + (100 * t - j) * (vk - vj);
         }
     }
+
+
+    inline void _weighted_copy(const MaskedImage &source, int ys, int xs, cv::Mat &target, int yt, int xt, double weight) {
+        if (source.is_masked(ys, xs)) return;
+
+        auto source_ptr = source.get_image(ys, xs);
+        auto target_ptr = target.ptr<double>(yt, xt);
+
+    #pragma unroll
+        for (int c = 0; c < 3; ++c)
+            target_ptr[c] += static_cast<double>(source_ptr[c]) * weight;
+        target_ptr[3] += weight;
+    }
 }
 
 /**
@@ -44,6 +57,7 @@ Inpainting::Inpainting(cv::Mat image, cv::Mat mask, int patch_size)
 }
 
 cv::Mat Inpainting::run(bool verbose) {
+    srand(100);
     const int nr_levels = m_pyramid.size();
 
     MaskedImage source, target;
@@ -198,13 +212,3 @@ void Inpainting::_maximization_step(MaskedImage &target, const cv::Mat &vote) {
     }
 }
 
-void Inpainting::_weighted_copy(const MaskedImage &source, int ys, int xs, cv::Mat &target, int yt, int xt, double weight) {
-    if (source.is_masked(ys, xs)) return;
-
-    auto source_ptr = source.get_image(ys, xs);
-    auto target_ptr = target.ptr<double>(yt, xt);
-
-    for (int c = 0; c < 3; ++c)
-        target_ptr[c] += static_cast<double>(source_ptr[c]) * weight;
-    target_ptr[3] += weight;
-}

@@ -4,20 +4,23 @@
 
 class MaskedImage {
 public:
-    MaskedImage() : m_image(), m_mask() {
+    MaskedImage() : m_image(), m_mask(), m_image_grady(), m_image_gradx() {
         // pass
     }
-    MaskedImage(cv::Mat image, cv::Mat mask) : m_image(image), m_mask(mask)  {
+    MaskedImage(cv::Mat image, cv::Mat mask) : m_image(image), m_mask(mask) {
+        compute_image_gradients();
+    }
+    MaskedImage(cv::Mat image, cv::Mat mask, cv::Mat grady, cv::Mat gradx) : m_image(image), m_mask(mask), m_image_grady(grady), m_image_gradx(gradx) {
         // pass
     }
-    MaskedImage(int width, int height) {
+    MaskedImage(int width, int height) : m_image_grady(), m_image_gradx() {
         m_image = cv::Mat(cv::Size(width, height), CV_8UC3);
         m_mask = cv::Mat(cv::Size(width, height), CV_8U);
         m_image = cv::Scalar::all(0);
         m_mask = cv::Scalar::all(0);
     }
     inline MaskedImage clone() {
-        return MaskedImage(m_image.clone(), m_mask.clone());
+        return MaskedImage(m_image.clone(), m_mask.clone(), m_image_grady.clone(), m_image_gradx.clone());
     }
 
     inline cv::Size size() const {
@@ -25,6 +28,17 @@ public:
     }
     inline const cv::Mat &image() const {
         return m_image;
+    }
+    inline const cv::Mat &mask() const {
+        return m_mask;
+    }
+    inline const cv::Mat &grady() const {
+        assert(m_image_grad_computed);
+        return m_image_grady;
+    }
+    inline const cv::Mat &gradx() const {
+        assert(m_image_grad_computed);
+        return m_image_gradx;
     }
 
     inline bool is_masked(int y, int x) const {
@@ -54,6 +68,8 @@ public:
     bool contains_mask(int y, int x, int patch_size) const;
     MaskedImage downsample() const;
     MaskedImage upsample(int new_w, int new_h) const;
+    void compute_image_gradients();
+    void compute_image_gradients() const;
 
     static const int kDistanceScale;
     static const int kSSDScale;
@@ -63,6 +79,9 @@ public:
 private:
 	cv::Mat m_image;
 	cv::Mat m_mask;
+    cv::Mat m_image_grady;
+    cv::Mat m_image_gradx;
+    bool m_image_grad_computed = false;
 };
 
 int distance_masked_images(

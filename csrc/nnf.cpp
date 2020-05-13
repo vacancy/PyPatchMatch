@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <iostream>
 
 #include "masked_image.h"
 #include "nnf.h"
@@ -28,10 +29,12 @@ void NearestNeighborField::_randomize_field(int max_retry, bool reset) {
             for (int t = 0; t < max_retry; ++t) {
                 i_target = rand() % this_size.height;
                 j_target = rand() % this_size.width;
+
                 distance = _distance(i, j, i_target, j_target);
                 if (distance < MaskedImage::kDistanceScale)
                     break;
             }
+
             this_ptr[0] = i_target, this_ptr[1] = j_target, this_ptr[2] = distance;
         }
     }
@@ -48,7 +51,7 @@ void NearestNeighborField::_initialize_field_from(const NearestNeighborField &ot
             int ilow = static_cast<int>(std::min(i / fi, static_cast<double>(other_size.height - 1)));
             int jlow = static_cast<int>(std::min(j / fj, static_cast<double>(other_size.width - 1)));
             auto this_value = mutable_ptr(i, j);
-            auto other_value = ptr(ilow, jlow);
+            auto other_value = other.ptr(ilow, jlow);
 
             this_value[0] = static_cast<int>(other_value[0] * fi);
             this_value[1] = static_cast<int>(other_value[1] * fj);

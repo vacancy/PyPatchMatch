@@ -7,10 +7,7 @@ const int MaskedImage::kSSDScale = 9 * 255 * 255;
 const cv::Size MaskedImage::kDownsampleKernelSize = cv::Size(6, 6);
 const int MaskedImage::kDownsampleKernel[6] = {1, 5, 10, 10, 5, 1};
 
-inline int fast_abs(int i) {
-    return (i + (i >> 31)) ^ (i >> 31);
-}
-inline int my_pow(int i) {
+inline int pow2(int i) {
     return i * i;
 }
 
@@ -159,7 +156,7 @@ int distance_masked_images(
             int xxs = xs + dx, xxt = xt + dx;
             wsum += 1;
 
-            if (xxs <= 0 || xxs >= source_size.width - 1 || xxt <= 0 || xxt >= source_size.height - 1) {
+            if (xxs <= 0 || xxs >= source_size.width - 1 || xxt <= 0 || xxt >= source_size.width - 1) {
                 distance += MaskedImage::kSSDScale;
                 continue;
             }
@@ -178,9 +175,9 @@ int distance_masked_images(
                 int s_gx = p_sgx[xxs * 3 + c];
                 int t_gx = p_tgx[xxt * 3 + c];
 
-                ssd += my_pow(static_cast<int>(s_value) - t_value);
-                ssd += my_pow(static_cast<int>(s_gx) - t_gx);
-                ssd += my_pow(static_cast<int>(s_gy) - t_gy);
+                ssd += pow2(static_cast<int>(s_value) - t_value);
+                ssd += pow2(static_cast<int>(s_gx) - t_gx);
+                ssd += pow2(static_cast<int>(s_gy) - t_gy);
             }
             distance += ssd;
         }

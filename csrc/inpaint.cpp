@@ -30,7 +30,7 @@ namespace {
         auto source_ptr = source.get_image(ys, xs);
         auto target_ptr = target.ptr<double>(yt, xt);
 
-    #pragma unroll
+#pragma unroll
         for (int c = 0; c < 3; ++c)
             target_ptr[c] += static_cast<double>(source_ptr[c]) * weight;
         target_ptr[3] += weight;

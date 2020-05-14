@@ -106,6 +106,7 @@ public:
         m_scale = sqrt(m_dx1 * m_dx1 + m_dy2 * m_dy2) / 4;
     }
     virtual int operator ()(const MaskedImage &source, int source_y, int source_x, const MaskedImage &target, int target_y, int target_x) const;
+
 protected:
     double m_dx1, m_dy1, m_dx2, m_dy2;
     double m_scale, m_weight;
@@ -115,8 +116,10 @@ class RegularityGuidedPatchDistanceMetricV2 : public PatchDistanceMetric {
 public:
     RegularityGuidedPatchDistanceMetricV2(int patch_size, cv::Mat ijmap, double weight)
         : PatchDistanceMetric(patch_size), m_ijmap(ijmap), m_weight(weight) {
+
     }
     virtual int operator ()(const MaskedImage &source, int source_y, int source_x, const MaskedImage &target, int target_y, int target_x) const;
+
 protected:
     cv::Mat m_ijmap;
     double m_width, m_height, m_weight;

@@ -215,14 +215,13 @@ int RegularityGuidedPatchDistanceMetricV1::operator ()(const MaskedImage &source
     score1 *= PatchDistanceMetric::kDistanceScale;
 
     double score2 = distance_masked_images(source, source_y, source_x, target, target_y, target_x, m_patch_size);
-
     double score = score1 * m_weight + score2 / (1 + m_weight);
     return static_cast<int>(score / (1 + m_weight));
 }
 
 int RegularityGuidedPatchDistanceMetricV2::operator ()(const MaskedImage &source, int source_y, int source_x, const MaskedImage &target, int target_y, int target_x) const {
-    if (source_y < 0 || source_y >= source.size().height || source_x < 0 || source_x >= source.size().width) return PatchDistanceMetric::kDistanceScale;
-    if (target_y < 0 || target_y >= target.size().height || target_x < 0 || target_x >= target.size().width) return PatchDistanceMetric::kDistanceScale;
+    if (target_y < 0 || target_y >= target.size().height || target_x < 0 || target_x >= target.size().width)
+        return PatchDistanceMetric::kDistanceScale;
 
     int source_scale = m_ijmap.size().height / source.size().height;
     int target_scale = m_ijmap.size().height / target.size().height;
@@ -232,14 +231,14 @@ int RegularityGuidedPatchDistanceMetricV2::operator ()(const MaskedImage &source
     auto source_ij = m_ijmap.ptr<float>(source_y * source_scale, source_x * source_scale);
     auto target_ij = m_ijmap.ptr<float>(target_y * target_scale, target_x * target_scale);
 
-    float di = fabs(source_ij[0] - target_ij[0]);  if (di > 0.5) di = 1 - di;
-    float dj = fabs(source_ij[1] - target_ij[1]);  if (dj > 0.5) dj = 1 - dj;
+    float di = fabs(source_ij[0] - target_ij[0]); if (di > 0.5) di = 1 - di;
+    float dj = fabs(source_ij[1] - target_ij[1]); if (dj > 0.5) dj = 1 - dj;
     double score1 = sqrt(di * di + dj *dj) / 0.707;
     if (score1 < 0 || score1 > 1) score1 = 1;
     score1 *= PatchDistanceMetric::kDistanceScale;
 
     double score2 = distance_masked_images(source, source_y, source_x, target, target_y, target_x, m_patch_size);
-    double score = score1 * m_weight + score2 / (1 + m_weight);
-    return static_cast<int>(score / (1 + m_weight));
+    double score = score1 * m_weight + score2;
+    return int(score / (1 + m_weight));
 }
 

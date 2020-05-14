@@ -8,7 +8,7 @@ public:
         // pass
     }
     MaskedImage(cv::Mat image, cv::Mat mask) : m_image(image), m_mask(mask) {
-        compute_image_gradients();
+        // pass
     }
     MaskedImage(cv::Mat image, cv::Mat mask, cv::Mat grady, cv::Mat gradx) : m_image(image), m_mask(mask), m_image_grady(grady), m_image_gradx(gradx) {
         // pass

@@ -18,10 +18,11 @@ PM_mat_t PM_inpaint(PM_mat_t source_py, PM_mat_t mask_py, int patch_size) {
     return _cv2_to_py(result);
 }
 
-PM_mat_t PM_inpaint_regularity(PM_mat_t source_py, PM_mat_t mask_py, PM_mat_t ijmap_py, int patch_size, double guide_weight) {
+PM_mat_t PM_inpaint_regularity(PM_mat_t source_py, PM_mat_t mask_py, PM_mat_t ijmap_py, int patch_size, float guide_weight) {
     cv::Mat source = _py_to_cv2(source_py);
     cv::Mat mask = _py_to_cv2(mask_py);
     cv::Mat ijmap = _py_to_cv2(ijmap_py);
+
     auto metric = RegularityGuidedPatchDistanceMetricV2(patch_size, ijmap, guide_weight);
     cv::Mat result = Inpainting(source, mask, &metric).run(false);
     return _cv2_to_py(result);

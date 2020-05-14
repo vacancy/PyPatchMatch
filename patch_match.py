@@ -47,7 +47,9 @@ class CMatT(ctypes.Structure):
 PMLIB = ctypes.CDLL(osp.join(osp.dirname(__file__), 'libpatchmatch.so'))
 
 PMLIB.PM_inpaint.argtypes = [CMatT, CMatT, ctypes.c_int]
+PMLIB.PM_inpaint_regularity.argtypes = [CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
 PMLIB.PM_inpaint.restype = CMatT
+PMLIB.PM_inpaint_regularity.restype = CMatT
 PMLIB.PM_free_pymat.argtypes = [CMatT]
 
 
@@ -87,6 +89,34 @@ def inpaint(
     mask = np.ascontiguousarray(mask)
 
     ret_pymat = PMLIB.PM_inpaint(np_to_pymat(image), np_to_pymat(mask), ctypes.c_int(patch_size))
+    ret_npmat = pymat_to_np(ret_pymat)
+    PMLIB.PM_free_pymat(ret_pymat)
+
+    return ret_npmat
+
+
+def inpaint_regularity(
+    image: Union[np.ndarray, Image.Image],
+    mask: Optional[Union[np.ndarray, Image.Image]],
+    ijmap: np.ndarray,
+    patch_size: int = 15, guide_weight: float = 1
+) -> np.ndarray:
+    if isinstance(image, Image.Image):
+        image = np.array(image)
+    if isinstance(mask, Image.Image):
+        mask = np.array(mask)
+
+    assert image.ndim == 3 and image.shape[2] == 3 and image.dtype == 'uint8'
+    if mask is None:
+        mask = (image == (255, 255, 255)).all(axis=2, keepdims=True).astype('uint8')
+    assert mask.ndim == 3 and mask.shape[2] == 1 and mask.dtype == 'uint8'
+    assert ijmap.ndim == 3 and ijmap.shape[2] == 3 and ijmap.dtype == 'float32'
+
+    image = np.ascontiguousarray(image)
+    mask = np.ascontiguousarray(mask)
+    ijmap = np.ascontiguousarray(ijmap)
+
+    ret_pymat = PMLIB.PM_inpaint_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
     ret_npmat = pymat_to_np(ret_pymat)
     PMLIB.PM_free_pymat(ret_pymat)
 

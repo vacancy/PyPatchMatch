@@ -7,7 +7,7 @@
 
 class Inpainting {
 public:
-    Inpainting(cv::Mat image, cv::Mat mask, int patch_size);
+    Inpainting(cv::Mat image, cv::Mat mask, const PatchDistanceMetric *metric);
     cv::Mat run(bool verbose = false);
 
 private:
@@ -20,6 +20,6 @@ private:
 
     NearestNeighborField m_source2target;
     NearestNeighborField m_target2source;
-    int m_patch_size;
+    const PatchDistanceMetric *m_distance_metric;
 };
 

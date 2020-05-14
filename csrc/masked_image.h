@@ -71,8 +71,6 @@ public:
     void compute_image_gradients();
     void compute_image_gradients() const;
 
-    static const int kDistanceScale;
-    static const int kSSDScale;
     static const cv::Size kDownsampleKernelSize;
     static const int kDownsampleKernel[6];
 
@@ -84,8 +82,3 @@ private:
     bool m_image_grad_computed = false;
 };
 
-int distance_masked_images(
-    const MaskedImage &source, int ys, int xs,
-    const MaskedImage &target, int yt, int xt,
-    int patch_size
-);

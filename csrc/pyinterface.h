@@ -27,6 +27,7 @@ struct PM_mat_t {
 
 void PM_free_pymat(PM_mat_t pymat);
 PM_mat_t PM_inpaint(PM_mat_t image, PM_mat_t mask, int patch_size);
+PM_mat_t PM_inpaint_regularity(PM_mat_t image, PM_mat_t mask, PM_mat_t ijmap, int patch_size, double guide_weight);
 
 } /*  extern "C" */
 

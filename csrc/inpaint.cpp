@@ -11,7 +11,7 @@ namespace {
 
     void init_kDistance2Similarity() {
         double base[11] = {1.0, 0.99, 0.96, 0.83, 0.38, 0.11, 0.02, 0.005, 0.0006, 0.0001, 0};
-        int length = (MaskedImage::kDistanceScale + 1);
+        int length = (PatchDistanceMetric::kDistanceScale + 1);
         kDistance2Similarity.resize(length);
         for (int i = 0; i < length; ++i) {
             double t = (double) i / length;
@@ -41,12 +41,12 @@ namespace {
  * This algorithme uses a version proposed by Xavier Philippeau.
  */
 
-Inpainting::Inpainting(cv::Mat image, cv::Mat mask, int patch_size)
-    : m_initial(image, mask), m_patch_size(patch_size), m_pyramid(), m_source2target(), m_target2source() {
+Inpainting::Inpainting(cv::Mat image, cv::Mat mask, const PatchDistanceMetric *metric)
+    : m_initial(image, mask), m_distance_metric(metric), m_pyramid(), m_source2target(), m_target2source() {
 
     auto source = m_initial;
     m_pyramid.push_back(source);
-    while (source.size().height > m_patch_size && source.size().width > m_patch_size) {
+    while (source.size().height > m_distance_metric->patch_size() && source.size().width > m_distance_metric->patch_size()) {
         source = source.downsample();
         m_pyramid.push_back(source);
     }
@@ -70,11 +70,11 @@ cv::Mat Inpainting::run(bool verbose) {
             target = source.clone();
             target.clear_mask();
 
-            m_source2target = NearestNeighborField(source, target, m_patch_size);
-            m_target2source = NearestNeighborField(target, source, m_patch_size);
+            m_source2target = NearestNeighborField(source, target, m_distance_metric);
+            m_target2source = NearestNeighborField(target, source, m_distance_metric);
         } else {
-            m_source2target = NearestNeighborField(source, target, m_patch_size, m_source2target);
-            m_target2source = NearestNeighborField(target, source, m_patch_size, m_target2source);
+            m_source2target = NearestNeighborField(source, target, m_distance_metric, m_source2target);
+            m_target2source = NearestNeighborField(target, source, m_distance_metric, m_target2source);
         }
 
         if (verbose) std::cerr << "Initialization done." << std::endl;
@@ -99,6 +99,7 @@ cv::Mat Inpainting::run(bool verbose) {
 MaskedImage Inpainting::_expectation_maximization(MaskedImage source, MaskedImage target, int level, bool verbose) {
     const int nr_iters_em = 1 + 2 * level;
     const int nr_iters_nnf = static_cast<int>(std::min(7, 1 + level));
+    const int patch_size = m_distance_metric->patch_size();
 
     MaskedImage new_source, new_target;
 
@@ -114,7 +115,7 @@ MaskedImage Inpainting::_expectation_maximization(MaskedImage source, MaskedImag
         auto size = source.size();
         for (int i = 0; i < size.height; ++i) {
             for (int j = 0; j < size.width; ++j) {
-                if (!source.contains_mask(i, j, m_patch_size)) {
+                if (!source.contains_mask(i, j, patch_size)) {
                     m_source2target.set_identity(i, j);
                     m_target2source.set_identity(i, j);
                 }
@@ -161,14 +162,15 @@ void Inpainting::_expectation_step(
 ) {
     auto source_size = nnf.source_size();
     auto target_size = nnf.target_size();
+    const int patch_size = m_distance_metric->patch_size();
 
     for (int i = 0; i < source_size.height; ++i) {
         for (int j = 0; j < source_size.width; ++j) {
             int yp = nnf.at(i, j, 0), xp = nnf.at(i, j, 1), dp = nnf.at(i, j, 2);
             double w = kDistance2Similarity[dp];
 
-            for (int di = -m_patch_size; di <= m_patch_size; ++di) {
-                for (int dj = -m_patch_size; dj <= m_patch_size; ++dj) {
+            for (int di = -patch_size; di <= patch_size; ++di) {
+                for (int dj = -patch_size; dj <= patch_size; ++dj) {
                     int ys = i + di, xs = j + dj, yt = yp + di, xt = xp + dj;
                     if (!(ys >= 0 && ys < source_size.height && xs >= 0 && xs < source_size.width)) continue;
                     if (!(yt >= 0 && yt < target_size.height && xt >= 0 && xt < target_size.width)) continue;

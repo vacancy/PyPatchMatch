@@ -20,7 +20,8 @@ int main() {
         }
     }
 
-    auto result = Inpainting(source, mask, 3).run(true);
+    auto metric = PatchSSDDistanceMetric(3);
+    auto result = Inpainting(source, mask, &metric).run(true);
     // cv::imwrite("./images/forest_recovered.bmp", result);
     // cv::imshow("Result", result);
     // cv::waitKey();

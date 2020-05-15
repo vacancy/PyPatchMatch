@@ -99,7 +99,7 @@ def inpaint_regularity(
     image: Union[np.ndarray, Image.Image],
     mask: Optional[Union[np.ndarray, Image.Image]],
     ijmap: np.ndarray,
-    patch_size: int = 15, guide_weight: float = 1
+    patch_size: int = 15, guide_weight: float = 0.25
 ) -> np.ndarray:
     if isinstance(image, Image.Image):
         image = np.array(image)

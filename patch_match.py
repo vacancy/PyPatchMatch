@@ -70,6 +70,7 @@ def set_verbose(verbose: bool):
 def inpaint(
     image: Union[np.ndarray, Image.Image],
     mask: Optional[Union[np.ndarray, Image.Image]] = None,
+    *,
     global_mask: Optional[Union[np.ndarray, Image.Image]] = None,
     patch_size: int = 15
 ) -> np.ndarray:
@@ -118,6 +119,7 @@ def inpaint_regularity(
     image: Union[np.ndarray, Image.Image],
     mask: Optional[Union[np.ndarray, Image.Image]],
     ijmap: np.ndarray,
+    *,
     global_mask: Optional[Union[np.ndarray, Image.Image]] = None,
     patch_size: int = 15, guide_weight: float = 0.25
 ) -> np.ndarray:

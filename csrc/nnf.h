@@ -32,6 +32,12 @@ public:
         _initialize_field_from(other, max_retry);
     }
 
+    const MaskedImage &source() const {
+        return m_source;
+    }
+    const MaskedImage &target() const {
+        return m_target;
+    }
     inline cv::Size source_size() const {
         return m_source.size();
     }

@@ -4,23 +4,32 @@
 
 class MaskedImage {
 public:
-    MaskedImage() : m_image(), m_mask(), m_image_grady(), m_image_gradx() {
+    MaskedImage() : m_image(), m_mask(), m_global_mask(), m_image_grady(), m_image_gradx(), m_image_grad_computed(false) {
         // pass
     }
-    MaskedImage(cv::Mat image, cv::Mat mask) : m_image(image), m_mask(mask) {
+    MaskedImage(cv::Mat image, cv::Mat mask) : m_image(image), m_mask(mask), m_image_grad_computed(false) {
         // pass
     }
-    MaskedImage(cv::Mat image, cv::Mat mask, cv::Mat grady, cv::Mat gradx) : m_image(image), m_mask(mask), m_image_grady(grady), m_image_gradx(gradx) {
+    MaskedImage(cv::Mat image, cv::Mat mask, cv::Mat global_mask) : m_image(image), m_mask(mask), m_global_mask(global_mask), m_image_grad_computed(false) {
         // pass
     }
-    MaskedImage(int width, int height) : m_image_grady(), m_image_gradx() {
+    MaskedImage(cv::Mat image, cv::Mat mask, cv::Mat global_mask, cv::Mat grady, cv::Mat gradx, bool grad_computed) :
+        m_image(image), m_mask(mask), m_global_mask(global_mask),
+        m_image_grady(grady), m_image_gradx(gradx), m_image_grad_computed(grad_computed) {
+        // pass
+    }
+    MaskedImage(int width, int height) : m_global_mask(), m_image_grady(), m_image_gradx() {
         m_image = cv::Mat(cv::Size(width, height), CV_8UC3);
-        m_mask = cv::Mat(cv::Size(width, height), CV_8U);
         m_image = cv::Scalar::all(0);
+
+        m_mask = cv::Mat(cv::Size(width, height), CV_8U);
         m_mask = cv::Scalar::all(0);
     }
     inline MaskedImage clone() {
-        return MaskedImage(m_image.clone(), m_mask.clone(), m_image_grady.clone(), m_image_gradx.clone());
+        return MaskedImage(
+            m_image.clone(), m_mask.clone(), m_global_mask.clone(),
+            m_image_grady.clone(), m_image_gradx.clone(), m_image_grad_computed
+        );
     }
 
     inline cv::Size size() const {
@@ -32,6 +41,9 @@ public:
     inline const cv::Mat &mask() const {
         return m_mask;
     }
+    inline const cv::Mat &global_mask() const {
+        return m_global_mask;
+    }
     inline const cv::Mat &grady() const {
         assert(m_image_grad_computed);
         return m_image_grady;
@@ -41,11 +53,25 @@ public:
         return m_image_gradx;
     }
 
+    inline void init_global_mask_mat() {
+        m_global_mask = cv::Mat(m_mask.size(), CV_8U);
+        m_global_mask.setTo(cv::Scalar(0));
+    }
+    inline void set_global_mask_mat(const cv::Mat &other) {
+        m_global_mask = other;
+    }
+
     inline bool is_masked(int y, int x) const {
         return static_cast<bool>(m_mask.at<unsigned char>(y, x));
     }
+    inline bool is_globally_masked(int y, int x) const {
+        return !m_global_mask.empty() && static_cast<bool>(m_global_mask.at<unsigned char>(y, x));
+    }
     inline void set_mask(int y, int x, bool value) {
         m_mask.at<unsigned char>(y, x) = static_cast<unsigned char>(value);
+    }
+    inline void set_global_mask(int y, int x, bool value) {
+        m_global_mask.at<unsigned char>(y, x) = static_cast<unsigned char>(value);
     }
     inline void clear_mask() {
         m_mask.setTo(cv::Scalar(0));
@@ -68,6 +94,7 @@ public:
     bool contains_mask(int y, int x, int patch_size) const;
     MaskedImage downsample() const;
     MaskedImage upsample(int new_w, int new_h) const;
+    MaskedImage upsample(int new_w, int new_h, const cv::Mat &new_global_mask) const;
     void compute_image_gradients();
     void compute_image_gradients() const;
 
@@ -77,6 +104,7 @@ public:
 private:
 	cv::Mat m_image;
 	cv::Mat m_mask;
+    cv::Mat m_global_mask;
     cv::Mat m_image_grady;
     cv::Mat m_image_gradx;
     bool m_image_grad_computed = false;

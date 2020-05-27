@@ -25,7 +25,7 @@ except ImportError as e:
     subprocess.check_call(['./travis.sh'], cwd=osp.dirname(__file__))
 
 
-__all__ = ['inpaint', 'inpaint_regularity']
+__all__ = ['set_random_seed', 'set_verbose', 'inpaint', 'inpaint_regularity']
 
 
 class CShapeT(ctypes.Structure):
@@ -46,16 +46,31 @@ class CMatT(ctypes.Structure):
 
 PMLIB = ctypes.CDLL(osp.join(osp.dirname(__file__), 'libpatchmatch.so'))
 
-PMLIB.PM_inpaint.argtypes = [CMatT, CMatT, ctypes.c_int]
-PMLIB.PM_inpaint_regularity.argtypes = [CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
-PMLIB.PM_inpaint.restype = CMatT
-PMLIB.PM_inpaint_regularity.restype = CMatT
+PMLIB.PM_set_random_seed.argtypes = [ctypes.c_uint]
+PMLIB.PM_set_verbose.argtypes = [ctypes.c_int]
 PMLIB.PM_free_pymat.argtypes = [CMatT]
+PMLIB.PM_inpaint.argtypes = [CMatT, CMatT, ctypes.c_int]
+PMLIB.PM_inpaint.restype = CMatT
+PMLIB.PM_inpaint_regularity.argtypes = [CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
+PMLIB.PM_inpaint_regularity.restype = CMatT
+PMLIB.PM_inpaint2.argtypes = [CMatT, CMatT, CMatT, ctypes.c_int]
+PMLIB.PM_inpaint2.restype = CMatT
+PMLIB.PM_inpaint2_regularity.argtypes = [CMatT, CMatT, CMatT, CMatT, ctypes.c_int, ctypes.c_float]
+PMLIB.PM_inpaint2_regularity.restype = CMatT
+
+
+def set_random_seed(seed: int):
+    PMLIB.PM_set_random_seed(ctypes.c_uint(seed))
+
+
+def set_verbose(verbose: bool):
+    PMLIB.PM_set_verbose(ctypes.c_int(verbose))
 
 
 def inpaint(
     image: Union[np.ndarray, Image.Image],
     mask: Optional[Union[np.ndarray, Image.Image]] = None,
+    global_mask: Optional[Union[np.ndarray, Image.Image]] = None,
     patch_size: int = 15
 ) -> np.ndarray:
     """
@@ -69,6 +84,7 @@ def inpaint(
         image (Union[np.ndarray, Image.Image]): the input image, should be 3-channel RGB/BGR.
         mask (Union[np.array, Image.Image], optional): the mask of the hole(s) to be filled, should be 1-channel.
         If not provided (None), the algorithm will treat all purely white pixels as the holes (255, 255, 255).
+        global_mask (Union[np.array, Image.Image], optional): the target mask of the output image.
         patch_size (int): the patch size for the inpainting algorithm.
 
     Return:
@@ -77,18 +93,21 @@ def inpaint(
 
     if isinstance(image, Image.Image):
         image = np.array(image)
-    if isinstance(mask, Image.Image):
-        mask = np.array(mask)
-
+    image = np.ascontiguousarray(image)
     assert image.ndim == 3 and image.shape[2] == 3 and image.dtype == 'uint8'
+
     if mask is None:
         mask = (image == (255, 255, 255)).all(axis=2, keepdims=True).astype('uint8')
-    assert mask.ndim == 3 and mask.shape[2] == 1 and mask.dtype == 'uint8'
+        mask = np.ascontiguousarray(mask)
+    else:
+        mask = _canonize_mask_array(mask)
 
-    image = np.ascontiguousarray(image)
-    mask = np.ascontiguousarray(mask)
+    if global_mask is None:
+        ret_pymat = PMLIB.PM_inpaint(np_to_pymat(image), np_to_pymat(mask), ctypes.c_int(patch_size))
+    else:
+        global_mask = _canonize_mask_array(global_mask)
+        ret_pymat = PMLIB.PM_inpaint2(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(global_mask), ctypes.c_int(patch_size))
 
-    ret_pymat = PMLIB.PM_inpaint(np_to_pymat(image), np_to_pymat(mask), ctypes.c_int(patch_size))
     ret_npmat = pymat_to_np(ret_pymat)
     PMLIB.PM_free_pymat(ret_pymat)
 
@@ -99,28 +118,43 @@ def inpaint_regularity(
     image: Union[np.ndarray, Image.Image],
     mask: Optional[Union[np.ndarray, Image.Image]],
     ijmap: np.ndarray,
+    global_mask: Optional[Union[np.ndarray, Image.Image]] = None,
     patch_size: int = 15, guide_weight: float = 0.25
 ) -> np.ndarray:
     if isinstance(image, Image.Image):
         image = np.array(image)
-    if isinstance(mask, Image.Image):
-        mask = np.array(mask)
+    image = np.ascontiguousarray(image)
+
+    assert isinstance(ijmap, np.ndarray) and ijmap.ndim == 3 and ijmap.shape[2] == 3 and ijmap.dtype == 'float32'
+    ijmap = np.ascontiguousarray(ijmap)
 
     assert image.ndim == 3 and image.shape[2] == 3 and image.dtype == 'uint8'
     if mask is None:
         mask = (image == (255, 255, 255)).all(axis=2, keepdims=True).astype('uint8')
-    assert mask.ndim == 3 and mask.shape[2] == 1 and mask.dtype == 'uint8'
-    assert ijmap.ndim == 3 and ijmap.shape[2] == 3 and ijmap.dtype == 'float32'
+        mask = np.ascontiguousarray(mask)
+    else:
+        mask = _canonize_mask_array(mask)
 
-    image = np.ascontiguousarray(image)
-    mask = np.ascontiguousarray(mask)
-    ijmap = np.ascontiguousarray(ijmap)
 
-    ret_pymat = PMLIB.PM_inpaint_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
+    if global_mask is None:
+        ret_pymat = PMLIB.PM_inpaint_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
+    else:
+        global_mask = _canonize_mask_array(global_mask)
+        ret_pymat = PMLIB.PM_inpaint_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(global_mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
+
     ret_npmat = pymat_to_np(ret_pymat)
     PMLIB.PM_free_pymat(ret_pymat)
 
     return ret_npmat
+
+
+def _canonize_mask_array(mask):
+    if isinstance(mask, Image.Image):
+        mask = np.array(mask)
+    if mask.ndim == 2 and mask.dtype == 'uint8':
+        mask = mask[..., np.newaxis]
+    assert mask.ndim == 3 and mask.shape[2] == 1 and mask.dtype == 'uint8'
+    return np.ascontiguousarray(mask)
 
 
 dtype_pymat_to_ctypes = [
@@ -143,7 +177,6 @@ dtype_np_to_pymat = {
     'float32': 5,
     'float64': 6,
 }
-
 
 
 def np_to_pymat(npmat):

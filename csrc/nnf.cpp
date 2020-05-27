@@ -20,6 +20,8 @@ void NearestNeighborField::_randomize_field(int max_retry, bool reset) {
     auto this_size = source_size();
     for (int i = 0; i < this_size.height; ++i) {
         for (int j = 0; j < this_size.width; ++j) {
+            if (m_source.is_globally_masked(i, j)) continue;
+
             auto this_ptr = mutable_ptr(i, j);
             int distance = reset ? PatchDistanceMetric::kDistanceScale : this_ptr[2];
             if (distance < PatchDistanceMetric::kDistanceScale) {
@@ -30,6 +32,7 @@ void NearestNeighborField::_randomize_field(int max_retry, bool reset) {
             for (int t = 0; t < max_retry; ++t) {
                 i_target = rand() % this_size.height;
                 j_target = rand() % this_size.width;
+                if (m_target.is_globally_masked(i_target, j_target)) continue;
 
                 distance = _distance(i, j, i_target, j_target);
                 if (distance < PatchDistanceMetric::kDistanceScale)
@@ -49,6 +52,8 @@ void NearestNeighborField::_initialize_field_from(const NearestNeighborField &ot
 
     for (int i = 0; i < this_size.height; ++i) {
         for (int j = 0; j < this_size.width; ++j) {
+            if (m_source.is_globally_masked(i, j)) continue;
+
             int ilow = static_cast<int>(std::min(i / fi, static_cast<double>(other_size.height - 1)));
             int jlow = static_cast<int>(std::min(j / fj, static_cast<double>(other_size.width - 1)));
             auto this_value = mutable_ptr(i, j);
@@ -67,11 +72,15 @@ void NearestNeighborField::minimize(int nr_pass) {
     const auto &this_size = source_size();
     while (nr_pass--) {
         for (int i = 0; i < this_size.height; ++i)
-            for (int j = 0; j < this_size.width; ++j)
+            for (int j = 0; j < this_size.width; ++j) {
+                if (m_source.is_globally_masked(i, j)) continue;
                 if (at(i, j, 2) > 0) _minimize_link(i, j, +1);
+            }
         for (int i = this_size.height - 1; i >= 0; --i)
-            for (int j = this_size.width - 1; j >= 0; --j)
+            for (int j = this_size.width - 1; j >= 0; --j) {
+                if (m_source.is_globally_masked(i, j)) continue;
                 if (at(i, j, 2) > 0) _minimize_link(i, j, -1);
+            }
     }
 }
 
@@ -81,7 +90,7 @@ void NearestNeighborField::_minimize_link(int y, int x, int direction) {
     auto this_ptr = mutable_ptr(y, x);
 
     // propagation along the y direction.
-    if (y - direction >= 0 && y - direction < this_size.height) {
+    if (y - direction >= 0 && y - direction < this_size.height && !m_source.is_globally_masked(y - direction, x)) {
         int yp = at(y - direction, x, 0) + direction;
         int xp = at(y - direction, x, 1);
         int dp = _distance(y, x, yp, xp);
@@ -91,7 +100,7 @@ void NearestNeighborField::_minimize_link(int y, int x, int direction) {
     }
 
     // propagation along the x direction.
-    if (x - direction >= 0 && x - direction < this_size.width) {
+    if (x - direction >= 0 && x - direction < this_size.width && !m_source.is_globally_masked(y, x - direction)) {
         int yp = at(y, x - direction, 0);
         int xp = at(y, x - direction, 1) + direction;
         int dp = _distance(y, x, yp, xp);
@@ -107,6 +116,11 @@ void NearestNeighborField::_minimize_link(int y, int x, int direction) {
         int xp = this_ptr[1] + (rand() % (2 * random_scale + 1) - random_scale);
         yp = clamp(yp, 0, target_size().height - 1);
         xp = clamp(xp, 0, target_size().width - 1);
+
+        if (m_target.is_globally_masked(yp, xp)) {
+            random_scale /= 2;
+        }
+
         int dp = _distance(y, x, yp, xp);
         if (dp < at(y, x, 2)) {
             this_ptr[0] = yp, this_ptr[1] = xp, this_ptr[2] = dp;
@@ -152,6 +166,13 @@ int distance_masked_images(
         const auto *p_sm = source.mask().ptr<unsigned char>(yys, 0);
         const auto *p_tm = target.mask().ptr<unsigned char>(yyt, 0);
 
+        const unsigned char *p_sgm = nullptr;
+        const unsigned char *p_tgm = nullptr;
+        if (!source.global_mask().empty()) {
+            p_sgm = source.global_mask().ptr<unsigned char>(yys, 0);
+            p_tgm = target.global_mask().ptr<unsigned char>(yyt, 0);
+        }
+
         const auto *p_sgy = source.grady().ptr<unsigned char>(yys, 0);
         const auto *p_tgy = target.grady().ptr<unsigned char>(yyt, 0);
         const auto *p_sgx = source.gradx().ptr<unsigned char>(yys, 0);
@@ -166,7 +187,7 @@ int distance_masked_images(
                 continue;
             }
 
-            if (p_sm[xxs] || p_tm[xxt]) {
+            if (p_sm[xxs] || p_tm[xxt] || (p_sgm && p_sgm[xxs]) || (p_tgm && p_tgm[xxt]) ) {
                 distance += PatchSSDDistanceMetric::kSSDScale;
                 continue;
             }
@@ -228,14 +249,17 @@ int RegularityGuidedPatchDistanceMetricV2::operator ()(const MaskedImage &source
 
     // fprintf(stderr, "RegularityGuidedPatchDistanceMetricV2 %d %d %d %d\n", source_y * source_scale, m_ijmap.size().height, source_x * source_scale, m_ijmap.size().width);
 
-    auto source_ij = m_ijmap.ptr<float>(source_y * source_scale, source_x * source_scale);
-    auto target_ij = m_ijmap.ptr<float>(target_y * target_scale, target_x * target_scale);
+    double score1 = PatchDistanceMetric::kDistanceScale;
+    if (!source.is_globally_masked(source_y, source_x) && !target.is_globally_masked(target_y, target_x)) {
+        auto source_ij = m_ijmap.ptr<float>(source_y * source_scale, source_x * source_scale);
+        auto target_ij = m_ijmap.ptr<float>(target_y * target_scale, target_x * target_scale);
 
-    float di = fabs(source_ij[0] - target_ij[0]); if (di > 0.5) di = 1 - di;
-    float dj = fabs(source_ij[1] - target_ij[1]); if (dj > 0.5) dj = 1 - dj;
-    double score1 = sqrt(di * di + dj *dj) / 0.707;
-    if (score1 < 0 || score1 > 1) score1 = 1;
-    score1 *= PatchDistanceMetric::kDistanceScale;
+        float di = fabs(source_ij[0] - target_ij[0]); if (di > 0.5) di = 1 - di;
+        float dj = fabs(source_ij[1] - target_ij[1]); if (dj > 0.5) dj = 1 - dj;
+        score1 = sqrt(di * di + dj *dj) / 0.707;
+        if (score1 < 0 || score1 > 1) score1 = 1;
+        score1 *= PatchDistanceMetric::kDistanceScale;
+    }
 
     double score2 = distance_masked_images(source, source_y, source_x, target, target_y, target_x, m_patch_size);
     double score = score1 * m_weight + score2;

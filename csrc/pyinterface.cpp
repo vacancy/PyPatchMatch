@@ -1,10 +1,21 @@
 #include "pyinterface.h"
 #include "inpaint.h"
 
+static unsigned int PM_seed = 1212;
+static bool PM_verbose = false;
+
 int _dtype_py_to_cv(int dtype_py);
 int _dtype_cv_to_py(int dtype_cv);
 cv::Mat _py_to_cv2(PM_mat_t pymat);
 PM_mat_t _cv2_to_py(cv::Mat cvmat);
+
+void PM_set_random_seed(unsigned int seed) {
+    PM_seed = seed;
+}
+
+void PM_set_verbose(int value) {
+    PM_verbose = static_cast<bool>(value);
+}
 
 void PM_free_pymat(PM_mat_t pymat) {
     free(pymat.data_ptr);
@@ -14,7 +25,7 @@ PM_mat_t PM_inpaint(PM_mat_t source_py, PM_mat_t mask_py, int patch_size) {
     cv::Mat source = _py_to_cv2(source_py);
     cv::Mat mask = _py_to_cv2(mask_py);
     auto metric = PatchSSDDistanceMetric(patch_size);
-    cv::Mat result = Inpainting(source, mask, &metric).run(false);
+    cv::Mat result = Inpainting(source, mask, &metric).run(PM_verbose, false, PM_seed);
     return _cv2_to_py(result);
 }
 
@@ -24,7 +35,28 @@ PM_mat_t PM_inpaint_regularity(PM_mat_t source_py, PM_mat_t mask_py, PM_mat_t ij
     cv::Mat ijmap = _py_to_cv2(ijmap_py);
 
     auto metric = RegularityGuidedPatchDistanceMetricV2(patch_size, ijmap, guide_weight);
-    cv::Mat result = Inpainting(source, mask, &metric).run(false);
+    cv::Mat result = Inpainting(source, mask, &metric).run(PM_verbose, false, PM_seed);
+    return _cv2_to_py(result);
+}
+
+PM_mat_t PM_inpaint2(PM_mat_t source_py, PM_mat_t mask_py, PM_mat_t global_mask_py, int patch_size) {
+    cv::Mat source = _py_to_cv2(source_py);
+    cv::Mat mask = _py_to_cv2(mask_py);
+    cv::Mat global_mask = _py_to_cv2(global_mask_py);
+
+    auto metric = PatchSSDDistanceMetric(patch_size);
+    cv::Mat result = Inpainting(source, mask, global_mask, &metric).run(PM_verbose, false, PM_seed);
+    return _cv2_to_py(result);
+}
+
+PM_mat_t PM_inpaint2_regularity(PM_mat_t source_py, PM_mat_t mask_py, PM_mat_t global_mask_py, PM_mat_t ijmap_py, int patch_size, float guide_weight) {
+    cv::Mat source = _py_to_cv2(source_py);
+    cv::Mat mask = _py_to_cv2(mask_py);
+    cv::Mat global_mask = _py_to_cv2(global_mask_py);
+    cv::Mat ijmap = _py_to_cv2(ijmap_py);
+
+    auto metric = RegularityGuidedPatchDistanceMetricV2(patch_size, ijmap, guide_weight);
+    cv::Mat result = Inpainting(source, mask, global_mask, &metric).run(PM_verbose, false, PM_seed);
     return _cv2_to_py(result);
 }
 

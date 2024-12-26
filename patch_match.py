@@ -101,12 +101,12 @@ def inpaint(
         mask = (image == (255, 255, 255)).all(axis=2, keepdims=True).astype('uint8')
         mask = np.ascontiguousarray(mask)
     else:
-        mask = _canonize_mask_array(mask)
+        mask = _canonicalize_mask_array(mask)
 
     if global_mask is None:
         ret_pymat = PMLIB.PM_inpaint(np_to_pymat(image), np_to_pymat(mask), ctypes.c_int(patch_size))
     else:
-        global_mask = _canonize_mask_array(global_mask)
+        global_mask = _canonicalize_mask_array(global_mask)
         ret_pymat = PMLIB.PM_inpaint2(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(global_mask), ctypes.c_int(patch_size))
 
     ret_npmat = pymat_to_np(ret_pymat)
@@ -135,13 +135,13 @@ def inpaint_regularity(
         mask = (image == (255, 255, 255)).all(axis=2, keepdims=True).astype('uint8')
         mask = np.ascontiguousarray(mask)
     else:
-        mask = _canonize_mask_array(mask)
+        mask = _canonicalize_mask_array(mask)
 
 
     if global_mask is None:
         ret_pymat = PMLIB.PM_inpaint_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
     else:
-        global_mask = _canonize_mask_array(global_mask)
+        global_mask = _canonicalize_mask_array(global_mask)
         ret_pymat = PMLIB.PM_inpaint2_regularity(np_to_pymat(image), np_to_pymat(mask), np_to_pymat(global_mask), np_to_pymat(ijmap), ctypes.c_int(patch_size), ctypes.c_float(guide_weight))
 
     ret_npmat = pymat_to_np(ret_pymat)
@@ -150,7 +150,7 @@ def inpaint_regularity(
     return ret_npmat
 
 
-def _canonize_mask_array(mask):
+def _canonicalize_mask_array(mask):
     if isinstance(mask, Image.Image):
         mask = np.array(mask)
     if mask.ndim == 2 and mask.dtype == 'uint8':
